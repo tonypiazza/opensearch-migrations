@@ -41,6 +41,14 @@ spec:
       # Any references to workflow.parameters must come from top level workflow
       - name: s3-snapshot-configmap
         value: "migrations-default-s3-config"
+      - name: snapshot-configmap
+        value: "{{workflow.parameters.s3-snapshot-configmap}}"
+      - name: storage-region
+        value: "{{workflow.parameters.s3Region}}"
+      - name: storage-endpoint
+        value: "{{workflow.parameters.s3Endpoint}}"
+      - name: storage-bucket
+        value: "{{workflow.parameters.s3BucketName}}"
       - name: migration-image-configmap
         value: "migration-image-config"
       - name: monitor-retry-limit
@@ -286,6 +294,12 @@ spec:
                 name: "{{workflow.parameters.s3-snapshot-configmap}}"
                 key: SNAPSHOT_ROLE_ARN
                 optional: true
+          - name: storage-region
+            value: "{{inputs.parameters.s3Region}}"
+          - name: storage-endpoint
+            value: "{{inputs.parameters.s3Endpoint}}"
+          - name: storage-bucket
+            value: "{{inputs.parameters.s3BucketName}}"
       container:
         image: "{{inputs.parameters.imageMigrationConsoleLocation}}"
         imagePullPolicy: "{{inputs.parameters.imageMigrationConsolePullPolicy}}"

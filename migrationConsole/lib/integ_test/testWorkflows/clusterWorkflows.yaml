@@ -13,6 +13,8 @@ spec:
           - name: namespace
           - name: image-registry-prefix
             default: ""
+          - name: cloud-provider
+            default: "aws"
       container:
         image: mirror.gcr.io/dtzar/helm-kubectl:3.18.6
         command: [ sh, -c ]
@@ -232,6 +234,8 @@ spec:
           - name: namespace
           - name: image-registry-prefix
             default: ""
+          - name: cloud-provider
+            default: "aws"
       container:
         image: mirror.gcr.io/dtzar/helm-kubectl:3.18.6
         command: [sh, -c]
@@ -429,6 +433,8 @@ spec:
           - name: namespace
           - name: image-registry-prefix
             default: ""
+          - name: cloud-provider
+            default: "aws"
       container:
         image: mirror.gcr.io/dtzar/helm-kubectl:3.18.6
         command: [sh, -c]
@@ -486,7 +492,17 @@ spec:
                   initContainers:
                     - name: install-s3-plugin
                       image: {{inputs.parameters.image-registry-prefix}}migrations/custom-elasticsearch:5.6.16
-                      command: ["sh", "-c", "bin/elasticsearch-plugin install --batch repository-s3"]
+                      command:
+                        - sh
+                        - -c
+                        - |
+                          CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
+                          bin/elasticsearch-plugin install --batch repository-s3
+                          if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+                            bin/elasticsearch-plugin install --batch repository-gcs
+                          elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+                            bin/elasticsearch-plugin install --batch repository-azure
+                          fi
                       volumeMounts:
                         - name: plugins
                           mountPath: /usr/share/elasticsearch/plugins
@@ -588,6 +604,8 @@ spec:
           - name: namespace
           - name: image-registry-prefix
             default: ""
+          - name: cloud-provider
+            default: "aws"
       container:
         image: mirror.gcr.io/dtzar/helm-kubectl:3.18.6
         command: [sh, -c]
@@ -643,7 +661,17 @@ spec:
                   initContainers:
                     - name: install-s3-plugin
                       image: {{inputs.parameters.image-registry-prefix}}migrations/custom-elasticsearch:6.8.23
-                      command: ["sh", "-c", "bin/elasticsearch-plugin install --batch repository-s3"]
+                      command:
+                        - sh
+                        - -c
+                        - |
+                          CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
+                          bin/elasticsearch-plugin install --batch repository-s3
+                          if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+                            bin/elasticsearch-plugin install --batch repository-gcs
+                          elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+                            bin/elasticsearch-plugin install --batch repository-azure
+                          fi
                       volumeMounts:
                         - name: plugins
                           mountPath: /usr/share/elasticsearch/plugins
@@ -654,10 +682,17 @@ spec:
                         - -c
                         - |
                           set -e
+                          CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
                           echo 'y' | bin/elasticsearch-keystore create
                           echo "test" | bin/elasticsearch-keystore add --stdin s3.client.default.access_key --force
                           echo "test" | bin/elasticsearch-keystore add --stdin s3.client.default.secret_key --force
                           echo "http://localstack.ma.svc.cluster.local:4566" | bin/elasticsearch-keystore add --stdin s3.client.default.endpoint --force
+                          if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+                            echo "test" | bin/elasticsearch-keystore add --stdin gcs.client.default.credentials_file --force
+                          elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+                            echo "test" | bin/elasticsearch-keystore add --stdin azure.client.default.account --force
+                            echo "test" | bin/elasticsearch-keystore add --stdin azure.client.default.key --force
+                          fi
                           cp /usr/share/elasticsearch/config/elasticsearch.keystore /shared/elasticsearch.keystore
                       volumeMounts:
                         - name: elasticsearch-keystore
@@ -765,6 +800,8 @@ spec:
           - name: namespace
           - name: image-registry-prefix
             default: ""
+          - name: cloud-provider
+            default: "aws"
       container:
         image: mirror.gcr.io/dtzar/helm-kubectl:3.18.6
         command: [sh, -c]
@@ -820,7 +857,17 @@ spec:
                   initContainers:
                     - name: install-s3-plugin
                       image: {{inputs.parameters.image-registry-prefix}}migrations/custom-elasticsearch:7.10.2
-                      command: ["sh", "-c", "bin/elasticsearch-plugin install --batch repository-s3"]
+                      command:
+                        - sh
+                        - -c
+                        - |
+                          CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
+                          bin/elasticsearch-plugin install --batch repository-s3
+                          if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+                            bin/elasticsearch-plugin install --batch repository-gcs
+                          elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+                            bin/elasticsearch-plugin install --batch repository-azure
+                          fi
                       volumeMounts:
                         - name: plugins
                           mountPath: /usr/share/elasticsearch/plugins
@@ -831,9 +878,16 @@ spec:
                         - -c
                         - |
                           set -e
+                          CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
                           echo 'y' | bin/elasticsearch-keystore create
                           echo "test" | bin/elasticsearch-keystore add --stdin s3.client.default.access_key --force
                           echo "test" | bin/elasticsearch-keystore add --stdin s3.client.default.secret_key --force
+                          if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+                            echo "test" | bin/elasticsearch-keystore add --stdin gcs.client.default.credentials_file --force
+                          elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+                            echo "test" | bin/elasticsearch-keystore add --stdin azure.client.default.account --force
+                            echo "test" | bin/elasticsearch-keystore add --stdin azure.client.default.key --force
+                          fi
                           cp /usr/share/elasticsearch/config/elasticsearch.keystore /shared/elasticsearch.keystore
                       volumeMounts:
                         - name: elasticsearch-keystore
@@ -941,6 +995,8 @@ spec:
           - name: namespace
           - name: image-registry-prefix
             default: ""
+          - name: cloud-provider
+            default: "aws"
       container:
         image: mirror.gcr.io/dtzar/helm-kubectl:3.18.6
         command: [sh, -c]
@@ -999,7 +1055,17 @@ spec:
                   initContainers:
                     - name: install-s3-plugin
                       image: {{inputs.parameters.image-registry-prefix}}migrations/custom-elasticsearch:8.19.14
-                      command: ["sh", "-c", "bin/elasticsearch-plugin install --batch repository-s3"]
+                      command:
+                        - sh
+                        - -c
+                        - |
+                          CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
+                          bin/elasticsearch-plugin install --batch repository-s3
+                          if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+                            bin/elasticsearch-plugin install --batch repository-gcs
+                          elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+                            bin/elasticsearch-plugin install --batch repository-azure
+                          fi
                       volumeMounts:
                         - name: plugins
                           mountPath: /usr/share/elasticsearch/plugins
@@ -1010,9 +1076,16 @@ spec:
                         - -c
                         - |
                           set -e
+                          CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
                           echo 'y' | bin/elasticsearch-keystore create
                           echo "test" | bin/elasticsearch-keystore add --stdin s3.client.default.access_key --force
                           echo "test" | bin/elasticsearch-keystore add --stdin s3.client.default.secret_key --force
+                          if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+                            echo "test" | bin/elasticsearch-keystore add --stdin gcs.client.default.credentials_file --force
+                          elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+                            echo "test" | bin/elasticsearch-keystore add --stdin azure.client.default.account --force
+                            echo "test" | bin/elasticsearch-keystore add --stdin azure.client.default.key --force
+                          fi
                           cp /usr/share/elasticsearch/config/elasticsearch.keystore /shared/elasticsearch.keystore
                       volumeMounts:
                         - name: elasticsearch-keystore
@@ -1118,6 +1191,8 @@ spec:
         parameters:
           - name: cluster-name
           - name: namespace
+          - name: cloud-provider
+            default: "aws"
       container:
         image: mirror.gcr.io/dtzar/helm-kubectl:3.18.6
         command: [sh, -c]
@@ -1135,7 +1210,14 @@ spec:
             EOF
             
             # Create OpenSearch values file
-            cat > /tmp/opensearch-values.yaml << 'EOF'
+            CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
+            EXTRA_PLUGINS=""
+            if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+              EXTRA_PLUGINS=$'\n                - "repository-gcs"'
+            elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+              EXTRA_PLUGINS=$'\n                - "repository-azure"'
+            fi
+            cat > /tmp/opensearch-values.yaml << EOF
             fullnameOverride: {{inputs.parameters.cluster-name}}
             nodeGroup: ""
             image:
@@ -1156,7 +1238,7 @@ spec:
             plugins:
               enabled: true
               installList:
-                - "repository-s3"
+                - "repository-s3"${EXTRA_PLUGINS}
             EOF
             
             # Install OpenSearch 1.3
@@ -1206,6 +1288,8 @@ spec:
         parameters:
           - name: cluster-name
           - name: namespace
+          - name: cloud-provider
+            default: "aws"
       container:
         image: mirror.gcr.io/dtzar/helm-kubectl:3.18.6
         command: [sh, -c]
@@ -1223,7 +1307,14 @@ spec:
             EOF
             
             # Create OpenSearch values file
-            cat > /tmp/opensearch-values.yaml << 'EOF'
+            CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
+            EXTRA_PLUGINS=""
+            if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+              EXTRA_PLUGINS=$'\n                - "repository-gcs"'
+            elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+              EXTRA_PLUGINS=$'\n                - "repository-azure"'
+            fi
+            cat > /tmp/opensearch-values.yaml << EOF
             fullnameOverride: {{inputs.parameters.cluster-name}}
             nodeGroup: ""
             image:
@@ -1247,7 +1338,7 @@ spec:
             plugins:
               enabled: true
               installList:
-                - "repository-s3"
+                - "repository-s3"${EXTRA_PLUGINS}
             EOF
             
             # Install OpenSearch 2.19.1
@@ -1300,6 +1391,8 @@ spec:
         parameters:
           - name: cluster-name
           - name: namespace
+          - name: cloud-provider
+            default: "aws"
       steps:
         - - name: create-secret
             template: opensearch-3-1-create-secret
@@ -1433,10 +1526,17 @@ spec:
                       - -c
                       - |
                         set -euo pipefail
-                        # Copy bundled plugins to shared volume, install repository-s3, then copy it over
+                        CLOUD_PROVIDER='{{inputs.parameters.cloud-provider}}'
                         cp -r /usr/share/opensearch/plugins/* /plugins/ 2>/dev/null || true
                         bin/opensearch-plugin install --batch repository-s3
                         cp -r /usr/share/opensearch/plugins/repository-s3 /plugins/
+                        if [ "$CLOUD_PROVIDER" = "gcp" ]; then
+                          bin/opensearch-plugin install --batch repository-gcs
+                          cp -r /usr/share/opensearch/plugins/repository-gcs /plugins/
+                        elif [ "$CLOUD_PROVIDER" = "azure" ]; then
+                          bin/opensearch-plugin install --batch repository-azure
+                          cp -r /usr/share/opensearch/plugins/repository-azure /plugins/
+                        fi
                     volumeMounts:
                       - name: plugins
                         mountPath: /plugins

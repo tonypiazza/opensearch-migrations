@@ -214,7 +214,7 @@ spec:
               value: "/root/schema/workflowMigration.schema.json"
             - name: MIGRATION_SAMPLE_CONFIG_PATH
               value: "/root/schema/sample.yaml"
-            {{- if .Values.defaultBucketConfiguration.create }}
+            {{- if eq .Values.cloudProvider "aws" }}
             - name: S3_ARTIFACTS_BUCKET_NAME
               valueFrom:
                 configMapKeyRef:
@@ -231,6 +231,33 @@ spec:
                   name: migrations-default-s3-config
                   key: ENDPOINT_HTTP
                   optional: true
+            {{- else if eq .Values.cloudProvider "gcp" }}
+            - name: GCS_ARTIFACTS_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_BUCKET_NAME
+            - name: GCS_ARTIFACTS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_REGION
+            - name: GCS_ARTIFACTS_ENDPOINT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_ENDPOINT_URL
+            {{- else if eq .Values.cloudProvider "azure" }}
+            - name: AZURE_ARTIFACTS_CONTAINER
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-azure-config
+                  key: AZURE_CONTAINER_NAME
+            - name: AZURE_ARTIFACTS_STORAGE_ACCOUNT
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-azure-config
+                  key: AZURE_STORAGE_ACCOUNT
             {{- end }}
             {{- if index .Values.conditionalPackageInstalls "cert-manager" }}
             - name: PROXY_DEFAULT_AWS_REGION

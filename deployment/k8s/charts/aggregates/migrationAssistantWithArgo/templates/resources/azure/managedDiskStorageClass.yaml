@@ -1,0 +1,12 @@
+{{- if eq .Values.cloudProvider "azure" }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azure-premium-ssd
+provisioner: disk.csi.azure.com
+parameters:
+  skuname: Premium_LRS
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+{{- end }}

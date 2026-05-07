@@ -1,0 +1,13 @@
+{{- if eq .Values.cloudProvider "azure" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: migrations-aks-metadata
+  labels:
+    app.kubernetes.io/component: azure-metadata
+data:
+  AZURE_SUBSCRIPTION_ID: {{ .Values.azure.subscriptionId | quote }}
+  AZURE_RESOURCE_GROUP: {{ .Values.azure.resourceGroup | quote }}
+  AZURE_REGION: {{ .Values.azure.region | quote }}
+  AKS_CLUSTER_NAME: {{ .Values.azure.clusterName | quote }}
+{{- end }}

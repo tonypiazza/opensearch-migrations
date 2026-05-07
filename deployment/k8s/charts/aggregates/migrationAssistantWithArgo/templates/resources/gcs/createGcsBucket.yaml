@@ -1,0 +1,64 @@
+{{- if and (eq .Values.cloudProvider "gcp") .Values.gcsBucketConfiguration.create }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-gcs-bucket-{{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: gcs-bucket-create
+      annotations:
+        karpenter.sh/do-not-disrupt: "true"
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: gcloud-cli
+          image: {{ .Values.gcsBucketConfiguration.bucketOperationImage }}
+          imagePullPolicy: {{ .Values.gcsBucketConfiguration.bucketOperationImagePullPolicy }}
+          env:
+            - name: GCS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_REGION
+            - name: GCS_ENDPOINT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_ENDPOINT_URL
+                  optional: true
+            - name: GCS_BUCKET_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_BUCKET_NAME
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              {{ include "migration.gcsFunctions" . | nindent 12 }}
+
+              echo "Target bucket for creation: $GCS_BUCKET_NAME"
+
+              if bucket_exists "$GCS_BUCKET_NAME"; then
+                echo "Bucket $GCS_BUCKET_NAME already exists."
+              else
+                echo "Creating bucket $GCS_BUCKET_NAME..."
+                gcloud storage buckets create "gs://$GCS_BUCKET_NAME" --location="$GCS_REGION"
+
+                if bucket_exists "$GCS_BUCKET_NAME"; then
+                  echo "Successfully created bucket $GCS_BUCKET_NAME."
+                else
+                  echo "Failed to create bucket $GCS_BUCKET_NAME."
+                  exit 1
+                fi
+              fi
+{{- end }}

@@ -1,6 +1,8 @@
 package org.opensearch.migrations;
 
+import org.opensearch.migrations.bulkload.common.AzureBlobSnapshotCreator;
 import org.opensearch.migrations.bulkload.common.FileSystemSnapshotCreator;
+import org.opensearch.migrations.bulkload.common.GcsSnapshotCreator;
 import org.opensearch.migrations.bulkload.common.OpenSearchClientFactory;
 import org.opensearch.migrations.bulkload.common.S3SnapshotCreator;
 import org.opensearch.migrations.bulkload.common.SnapshotCreator;
@@ -37,6 +39,34 @@ public class ElasticsearchBackupStrategy implements SourceBackupStrategy {
                 client,
                 args.fileSystemRepoPath,
                 args.indexAllowlist,
+                context,
+                args.compressionEnabled,
+                args.includeGlobalState
+            );
+        } else if (args.gcsRepoUri != null) {
+            snapshotCreator = new GcsSnapshotCreator(
+                args.snapshotName,
+                args.snapshotRepoName,
+                client,
+                args.gcsRepoUri,
+                args.gcsRegion,
+                args.gcsEndpoint,
+                args.indexAllowlist,
+                args.maxSnapshotRateMBPerNode,
+                context,
+                args.compressionEnabled,
+                args.includeGlobalState
+            );
+        } else if (args.azureRepoUri != null) {
+            snapshotCreator = new AzureBlobSnapshotCreator(
+                args.snapshotName,
+                args.snapshotRepoName,
+                client,
+                args.azureRepoUri,
+                args.azureRegion,
+                args.azureEndpoint,
+                args.indexAllowlist,
+                args.maxSnapshotRateMBPerNode,
                 context,
                 args.compressionEnabled,
                 args.includeGlobalState

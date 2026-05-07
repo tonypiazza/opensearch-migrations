@@ -8,4 +8,6 @@ dependencies {
     implementation libs.slf4j.api
     implementation libs.aws.s3
     implementation libs.aws.crt
+    implementation libs.google.cloud.storage
+    implementation libs.azure.storage.blob
 }

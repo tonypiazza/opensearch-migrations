@@ -1,0 +1,13 @@
+{{- if eq .Values.cloudProvider "azure" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: migrations-default-azure-config
+  labels:
+    workflows.argoproj.io/configmap-type: Parameter
+data:
+  AZURE_STORAGE_ACCOUNT: {{ .Values.azureBlobContainerConfiguration.storageAccount | default "" }}
+  AZURE_CONTAINER_NAME: {{ .Values.azureBlobContainerConfiguration.containerName | default (printf "migrations-default-%s" .Release.Namespace) }}
+  AZURE_ENDPOINT: {{ .Values.azureBlobContainerConfiguration.endpoint }}
+{{- end }}

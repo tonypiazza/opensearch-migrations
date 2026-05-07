@@ -48,6 +48,11 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
+import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -349,6 +354,48 @@ public class TrafficReplayer {
             arity = 1,
             description = "Custom S3 endpoint URL (for LocalStack, MinIO, or non-standard S3-compatible services).")
         String tupleS3Endpoint;
+
+        @Parameter(
+            required = false,
+            names = { "--tuple-gcs-bucket", "--tupleGcsBucket" },
+            arity = 1,
+            description = "GCS bucket for tuple output. When set, tuples are written directly to GCS.")
+        String tupleGcsBucket;
+
+        @Parameter(
+            required = false,
+            names = { "--tuple-gcs-region", "--tupleGcsRegion" },
+            arity = 1,
+            description = "GCS region for the tuple bucket.")
+        String tupleGcsRegion;
+
+        @Parameter(
+            required = false,
+            names = { "--tuple-gcs-endpoint", "--tupleGcsEndpoint" },
+            arity = 1,
+            description = "Custom GCS endpoint (for testing with fake-gcs-server or similar).")
+        String tupleGcsEndpoint;
+
+        @Parameter(
+            required = false,
+            names = { "--tuple-azure-container", "--tupleAzureContainer" },
+            arity = 1,
+            description = "Azure Blob container for tuple output.")
+        String tupleAzureContainer;
+
+        @Parameter(
+            required = false,
+            names = { "--tuple-azure-storage-account", "--tupleAzureStorageAccount" },
+            arity = 1,
+            description = "Azure storage account name.")
+        String tupleAzureStorageAccount;
+
+        @Parameter(
+            required = false,
+            names = { "--tuple-azure-endpoint", "--tupleAzureEndpoint" },
+            arity = 1,
+            description = "Custom Azure Blob endpoint override.")
+        String tupleAzureEndpoint;
 
         @Parameter(
             required = false,
@@ -699,7 +746,7 @@ public class TrafficReplayer {
             }, ACTIVE_WORK_MONITOR_CADENCE_MS, ACTIVE_WORK_MONITOR_CADENCE_MS, TimeUnit.MILLISECONDS);
 
             setupShutdownHookForReplayer(tr);
-            var tupleWriter = createS3TupleWriterIfConfigured(params);
+            var tupleWriter = createTupleWriterIfConfigured(params);
             if (tupleWriter != null) {
                 tr.setupRunAndWaitForReplayWithShutdownChecks(
                     Duration.ofSeconds(params.observedPacketConnectionTimeout),
@@ -736,35 +783,76 @@ public class TrafficReplayer {
         }
     }
 
-    private static ThreadLocalTupleWriter createS3TupleWriterIfConfigured(Parameters params) {
-        if (params.tupleS3Bucket == null || params.tupleS3Bucket.isEmpty()) {
-            return null;
+    private static ThreadLocalTupleWriter createTupleWriterIfConfigured(Parameters params) {
+        if (params.tupleS3Bucket != null && !params.tupleS3Bucket.isEmpty()) {
+            log.info("S3 tuple writing enabled — bucket={}, region={}, prefix={}",
+                params.tupleS3Bucket, params.tupleS3Region, params.tupleS3Prefix);
+            var s3ClientBuilder = S3AsyncClient.crtBuilder()
+                .region(Region.of(params.tupleS3Region))
+                .credentialsProvider(DefaultCredentialsProvider.builder().build())
+                .targetThroughputInGbps(2.0)
+                .minimumPartSizeInBytes(8L * 1024 * 1024);
+            if (params.tupleS3Endpoint != null && !params.tupleS3Endpoint.isEmpty()) {
+                s3ClientBuilder.endpointOverride(URI.create(params.tupleS3Endpoint));
+                s3ClientBuilder.forcePathStyle(true);
+            }
+            var s3Client = s3ClientBuilder.build();
+            var replayerId = ProcessHelpers.getNodeInstanceName();
+            return new ThreadLocalTupleWriter(
+                sinkIndex -> new S3TupleSink(
+                    s3Client,
+                    params.tupleS3Bucket,
+                    params.tupleS3Prefix,
+                    replayerId,
+                    sinkIndex,
+                    params.tupleMaxFileSizeMb * 1024L * 1024L,
+                    Duration.ofSeconds(params.tupleMaxBufferSeconds),
+                    params.tupleMaxPerFile
+                )
+            );
+        } else if (params.tupleGcsBucket != null && !params.tupleGcsBucket.isEmpty()) {
+            log.info("GCS tuple writing enabled — bucket={}, prefix={}",
+                params.tupleGcsBucket, params.tupleS3Prefix);
+            var storage = StorageOptions.getDefaultInstance().getService();
+            var replayerId = ProcessHelpers.getNodeInstanceName();
+            return new ThreadLocalTupleWriter(
+                sinkIndex -> new GcsTupleSink(
+                    storage,
+                    params.tupleGcsBucket,
+                    params.tupleS3Prefix,
+                    replayerId,
+                    sinkIndex,
+                    params.tupleMaxFileSizeMb * 1024L * 1024L,
+                    Duration.ofSeconds(params.tupleMaxBufferSeconds),
+                    params.tupleMaxPerFile
+                )
+            );
+        } else if (params.tupleAzureContainer != null && !params.tupleAzureContainer.isEmpty()) {
+            log.info("Azure tuple writing enabled — container={}, prefix={}",
+                params.tupleAzureContainer, params.tupleS3Prefix);
+            var credential = new DefaultAzureCredentialBuilder().build();
+            var endpoint = params.tupleAzureEndpoint != null && !params.tupleAzureEndpoint.isEmpty()
+                ? params.tupleAzureEndpoint
+                : "https://" + params.tupleAzureStorageAccount + ".blob.core.windows.net";
+            var serviceClient = new BlobServiceClientBuilder()
+                .endpoint(endpoint)
+                .credential(credential)
+                .buildClient();
+            var containerClient = serviceClient.getBlobContainerClient(params.tupleAzureContainer);
+            var replayerId = ProcessHelpers.getNodeInstanceName();
+            return new ThreadLocalTupleWriter(
+                sinkIndex -> new AzureBlobTupleSink(
+                    containerClient,
+                    params.tupleS3Prefix,
+                    replayerId,
+                    sinkIndex,
+                    params.tupleMaxFileSizeMb * 1024L * 1024L,
+                    Duration.ofSeconds(params.tupleMaxBufferSeconds),
+                    params.tupleMaxPerFile
+                )
+            );
         }
-        log.info("S3 tuple writing enabled — bucket={}, region={}, prefix={}",
-            params.tupleS3Bucket, params.tupleS3Region, params.tupleS3Prefix);
-        var s3ClientBuilder = S3AsyncClient.crtBuilder()
-            .region(Region.of(params.tupleS3Region))
-            .credentialsProvider(DefaultCredentialsProvider.builder().build())
-            .targetThroughputInGbps(2.0)
-            .minimumPartSizeInBytes(8L * 1024 * 1024);
-        if (params.tupleS3Endpoint != null && !params.tupleS3Endpoint.isEmpty()) {
-            s3ClientBuilder.endpointOverride(URI.create(params.tupleS3Endpoint));
-            s3ClientBuilder.forcePathStyle(true);
-        }
-        var s3Client = s3ClientBuilder.build();
-        var replayerId = ProcessHelpers.getNodeInstanceName();
-        return new ThreadLocalTupleWriter(
-            sinkIndex -> new S3TupleSink(
-                s3Client,
-                params.tupleS3Bucket,
-                params.tupleS3Prefix,
-                replayerId,
-                sinkIndex,
-                params.tupleMaxFileSizeMb * 1024L * 1024L,
-                Duration.ofSeconds(params.tupleMaxBufferSeconds),
-                params.tupleMaxPerFile
-            )
-        );
+        return null;
     }
 
     private static void setupShutdownHookForReplayer(TrafficReplayerTopLevel tr) {

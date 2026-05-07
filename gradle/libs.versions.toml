@@ -47,6 +47,11 @@ testcontainers = "2.0.5"
 testcontainers-modules = "1.21.4"
 toxiproxy = "2.1.11"
 zstd-jni = "1.5.7-8"
+gcp-storage = "2.51.1"
+gcp-libraries-bom = "26.55.0"
+azure-storage-blob = "12.29.1"
+azure-identity = "1.15.1"
+azure-sdk-bom = "1.2.31"
 
 [libraries]
 aws-arns = { module = "software.amazon.awssdk:arns", version.ref = "aws-sdk" }
@@ -177,6 +182,10 @@ toxiproxy = {module = "eu.rekawek.toxiproxy:toxiproxy-java", version.ref = "toxi
 
 zstd-jni = {module = "com.github.luben:zstd-jni", version.ref = "zstd-jni" }
 
+gcp-storage = { module = "com.google.cloud:google-cloud-storage", version.ref = "gcp-storage" }
+azure-storage-blob = { module = "com.azure:azure-storage-blob", version.ref = "azure-storage-blob" }
+azure-identity = { module = "com.azure:azure-identity", version.ref = "azure-identity" }
+
 # List all boms here with prefix boms- to force platforms across all projects
 boms-aws-sdk          = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 boms-jackson          = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson" }
@@ -184,6 +193,8 @@ boms-junit            = { module = "org.junit:junit-bom", version.ref = "junit-j
 boms-netty            = { module = "io.netty:netty-bom", version.ref = "netty" }
 boms-testcontainers   = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 boms-opentelemetry    = { module = "io.opentelemetry:opentelemetry-bom", version.ref = "opentelemetry" }
+boms-gcp              = { module = "com.google.cloud:libraries-bom", version.ref = "gcp-libraries-bom" }
+boms-azure            = { module = "com.azure:azure-sdk-bom", version.ref = "azure-sdk-bom" }
 
 # Transitive dependencies to force based on CVEs
 transitive-apache-httpclient = { module = "org.apache.httpcomponents:httpclient",    version = "4.5.14"   }

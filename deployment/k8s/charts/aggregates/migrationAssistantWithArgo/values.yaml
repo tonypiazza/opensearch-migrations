@@ -62,11 +62,27 @@ images:
     tag: "3.1.0"
     pullPolicy: IfNotPresent
 
-# Default AWS values are dummy values for LocalStack usage
+# Cloud provider: aws, gcp, azure
+cloudProvider: ""
+
 aws:
   configureAwsEksResources: false
   region: us-east-2
   account: "123456789012"
+
+gcp:
+  configureGkeResources: false
+  project: ""
+  region: us-central1
+  zone: ""
+  clusterName: ""
+
+azure:
+  configureAksResources: false
+  subscriptionId: ""
+  resourceGroup: ""
+  region: eastus
+  clusterName: ""
 
 # EKS cluster configuration for Karpenter NodeClass
 cluster:
@@ -101,6 +117,7 @@ workerFleets: {}
 stageName: dev
 
 defaultBucketConfiguration:
+  provider: aws
   create: true
   deleteOnUninstall: true
   emptyBeforeDelete: true
@@ -109,6 +126,24 @@ defaultBucketConfiguration:
   serviceAccountName: "migrations-service-account"
   bucketOperationImage: "amazon/aws-cli:2.25.11"
   bucketOperationImagePullPolicy: "IfNotPresent"
+
+gcsBucketConfiguration:
+  create: false
+  deleteOnUninstall: false
+  emptyBeforeDelete: true
+  endpoint: ""
+  bucketOperationImage: "google/cloud-sdk:latest"
+  bucketOperationImagePullPolicy: "IfNotPresent"
+  bucketName: ""
+
+azureBlobContainerConfiguration:
+  create: false
+  deleteOnUninstall: false
+  emptyBeforeDelete: true
+  endpoint: ""
+  bucketOperationImage: "mcr.microsoft.com/azure-cli:latest"
+  bucketOperationImagePullPolicy: "IfNotPresent"
+  containerName: ""
 
 logs:
   sharedLogsVolume:
@@ -332,6 +367,18 @@ charts:
         s3:
           insecure: false
           keyFormat: "argo-artifacts/{{workflow.name}}/{{pod.name}}"
+          bucket: ""
+          region: ""
+          endpoint: ""
+          accessKeySecret: null
+          secretKeySecret: null
+        gcs:
+          bucket: ""
+          serviceAccountKeySecret: null
+        azure:
+          container: ""
+          accountName: ""
+          accountKeySecret: null
       images:
         pullPolicy: IfNotPresent
       crds:

@@ -1,0 +1,27 @@
+cloudProvider: azure
+
+azure:
+  configureAksResources: true
+
+aws:
+  configureAwsEksResources: false
+
+defaultBucketConfiguration:
+  create: false
+
+azureBlobContainerConfiguration:
+  create: true
+  deleteOnUninstall: true
+  emptyBeforeDelete: true
+
+charts:
+  argo-workflows:
+    artifactRepository:
+      s3: null
+      gcs: null
+      azure:
+        container: "migrations-default-{{ .Release.Namespace }}"
+        accountName: ""
+        accountKeySecret:
+          name: azure-artifact-credentials
+          key: accountKey

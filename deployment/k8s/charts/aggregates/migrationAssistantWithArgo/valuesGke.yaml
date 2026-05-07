@@ -1,0 +1,26 @@
+cloudProvider: gcp
+
+gcp:
+  configureGkeResources: true
+
+aws:
+  configureAwsEksResources: false
+
+defaultBucketConfiguration:
+  create: false
+
+gcsBucketConfiguration:
+  create: true
+  deleteOnUninstall: true
+  emptyBeforeDelete: true
+
+charts:
+  argo-workflows:
+    artifactRepository:
+      s3: null
+      gcs:
+        bucket: "migrations-default-{{ .Release.Namespace }}"
+        serviceAccountKeySecret:
+          name: gcs-artifact-credentials
+          key: serviceAccountKey
+      azure: null

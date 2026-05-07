@@ -7,7 +7,10 @@ setup(
     packages=find_packages(exclude=("tests")),
     install_requires=["requests", "boto3", "pyyaml", "Click", "cerberus",
                       "kubernetes", "rich>=14.0.0", "ruamel.yaml", "pydantic", "awscli",
-                      "ijson", "psutil", "textual"],
+                      "ijson", "psutil", "textual",
+                      "google-cloud-storage>=2.10.0",
+                      "azure-storage-blob>=12.19.0",
+                      "azure-identity>=1.15.0"],
     entry_points={
         "console_scripts": [
             "console = console_link.cli:main",

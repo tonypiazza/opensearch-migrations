@@ -12,3 +12,23 @@ stringData:
   accessKey: "test"
   secretKey: "test"
 {{- end }}
+---
+{{- if and (eq .Values.cloudProvider "gcp") .Values.charts.argo-workflows.artifactRepository.gcs.serviceAccountKeySecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.charts.argo-workflows.artifactRepository.gcs.serviceAccountKeySecret.name }}
+type: Opaque
+data:
+  {{ .Values.charts.argo-workflows.artifactRepository.gcs.serviceAccountKeySecret.key }}: {{ .Values.gcs.bucketOperationServiceAccountKey | default "" | b64enc }}
+{{- end }}
+---
+{{- if and (eq .Values.cloudProvider "azure") .Values.charts.argo-workflows.artifactRepository.azure.accountKeySecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.charts.argo-workflows.artifactRepository.azure.accountKeySecret.name }}
+type: Opaque
+data:
+  {{ .Values.charts.argo-workflows.artifactRepository.azure.accountKeySecret.key }}: {{ .Values.azure.storageAccountKey | default "" | b64enc }}
+{{- end }}

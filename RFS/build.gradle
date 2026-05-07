@@ -42,6 +42,9 @@ dependencies {
 
     implementation libs.aws.crt
     implementation libs.aws.s3
+    implementation libs.gcp.storage
+    implementation libs.azure.storage.blob
+    implementation libs.azure.identity
 
     implementation libs.reactor.netty.core
     implementation libs.reactor.netty.http

@@ -1,0 +1,66 @@
+{{- if and (eq .Values.cloudProvider "gcp") .Values.gcsBucketConfiguration.deleteOnUninstall }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delete-gcs-bucket-{{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: gcs-bucket-delete
+      annotations:
+        karpenter.sh/do-not-disrupt: "true"
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: gcloud-cli
+          image: {{ .Values.gcsBucketConfiguration.bucketOperationImage }}
+          imagePullPolicy: {{ .Values.gcsBucketConfiguration.bucketOperationImagePullPolicy }}
+          env:
+            - name: GCS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_REGION
+            - name: GCS_ENDPOINT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_ENDPOINT_URL
+                  optional: true
+            - name: GCS_BUCKET_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-gcs-config
+                  key: GCS_BUCKET_NAME
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              {{ include "migration.gcsFunctions" . | nindent 12 }}
+
+              EMPTY_BEFORE_DELETE={{ .Values.gcsBucketConfiguration.emptyBeforeDelete }}
+              echo "Target bucket for deletion: $GCS_BUCKET_NAME"
+
+              if bucket_exists "$GCS_BUCKET_NAME"; then
+                echo "Bucket $GCS_BUCKET_NAME exists."
+
+                if [ "${EMPTY_BEFORE_DELETE}" = "true" ]; then
+                  echo "Emptying bucket $GCS_BUCKET_NAME..."
+                  gcloud storage rm -r "gs://$GCS_BUCKET_NAME/**" --quiet || true
+                fi
+
+                echo "Deleting bucket $GCS_BUCKET_NAME..."
+                gcloud storage buckets delete "gs://$GCS_BUCKET_NAME" --quiet
+                echo "Bucket $GCS_BUCKET_NAME deleted successfully."
+              else
+                echo "Bucket $GCS_BUCKET_NAME does not exist. Skipping deletion."
+              fi
+{{- end }}

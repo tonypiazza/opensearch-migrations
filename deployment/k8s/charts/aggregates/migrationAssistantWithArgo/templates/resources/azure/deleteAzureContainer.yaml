@@ -1,0 +1,53 @@
+{{- if and (eq .Values.cloudProvider "azure") .Values.azureBlobContainerConfiguration.deleteOnUninstall }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delete-azure-container-{{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: azure-container-delete
+      annotations:
+        karpenter.sh/do-not-disrupt: "true"
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: azure-cli
+          image: {{ .Values.azureBlobContainerConfiguration.bucketOperationImage }}
+          imagePullPolicy: {{ .Values.azureBlobContainerConfiguration.bucketOperationImagePullPolicy }}
+          env:
+            - name: AZURE_STORAGE_ACCOUNT
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-azure-config
+                  key: AZURE_STORAGE_ACCOUNT
+            - name: AZURE_CONTAINER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: migrations-default-azure-config
+                  key: AZURE_CONTAINER_NAME
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              {{ include "migration.azureFunctions" . | nindent 12 }}
+
+              EMPTY_BEFORE_DELETE={{ .Values.azureBlobContainerConfiguration.emptyBeforeDelete }}
+              echo "Target container for deletion: $AZURE_CONTAINER_NAME"
+
+              if [ "${EMPTY_BEFORE_DELETE}" = "true" ]; then
+                echo "Emptying container $AZURE_CONTAINER_NAME..."
+                az storage blob delete-batch --source "$AZURE_CONTAINER_NAME" --account-name "$AZURE_STORAGE_ACCOUNT" --auth-mode login --delete-snapshots include --quiet || true
+              fi
+
+              az storage container delete --name "$AZURE_CONTAINER_NAME" --account-name "$AZURE_STORAGE_ACCOUNT" --auth-mode login
+              echo "Container $AZURE_CONTAINER_NAME deleted successfully."
+{{- end }}

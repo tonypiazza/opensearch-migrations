@@ -19,6 +19,9 @@ dependencies {
     implementation libs.reactor.core
     implementation libs.aws.s3
     implementation libs.aws.crt
+    implementation libs.gcp.storage
+    implementation libs.azure.storage.blob
+    implementation libs.azure.identity
 
     // Shadow lucene jars from SearchSnapshotExtractor (needed by ShardMetadataData classes for BytesRef)
     implementation project(':SearchSnapshotExtractor').tasks.named('shadowLucene9').map { it.outputs.files }

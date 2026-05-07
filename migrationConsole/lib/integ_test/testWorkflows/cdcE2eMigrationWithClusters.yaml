@@ -53,6 +53,14 @@ spec:
         value: ""
       - name: s3-snapshot-configmap
         value: "migrations-default-s3-config"
+      - name: snapshot-configmap
+        value: "{{workflow.parameters.s3-snapshot-configmap}}"
+      - name: storage-region
+        value: "{{workflow.parameters.s3Region}}"
+      - name: storage-endpoint
+        value: "{{workflow.parameters.s3Endpoint}}"
+      - name: storage-bucket
+        value: "{{workflow.parameters.s3BucketName}}"
       - name: migration-image-configmap
         value: "migration-image-config"
       - name: monitor-retry-limit

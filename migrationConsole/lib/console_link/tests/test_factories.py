@@ -19,6 +19,7 @@ from console_link.models.factories import (
     UnsupportedBackfillTypeError,
     UnsupportedMetricsSourceError,
 )
+from console_link.models.snapshot import AzureBlobSnapshot, GcsSnapshot
 from tests.utils import create_valid_cluster
 
 
@@ -35,6 +36,22 @@ class TestGetSnapshotFactory:
     def test_multiple_unknown_keys_raises_unsupported_error(self):
         with pytest.raises(UnsupportedSnapshotError):
             get_snapshot({"a": {}, "b": {}}, None)
+
+    def test_get_gcs_snapshot(self):
+        config = {
+            "snapshot_name": "test_snapshot",
+            "gcs": {"repo_uri": "gs://bucket", "region": "us-central1"}
+        }
+        result = get_snapshot(config, create_valid_cluster())
+        assert isinstance(result, GcsSnapshot)
+
+    def test_get_azure_snapshot(self):
+        config = {
+            "snapshot_name": "test_snapshot",
+            "azure": {"repo_uri": "https://acct.blob.core.windows.net/c", "region": "eastus"}
+        }
+        result = get_snapshot(config, create_valid_cluster())
+        assert isinstance(result, AzureBlobSnapshot)
 
 
 class TestGetReplayerFactory:

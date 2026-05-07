@@ -1,0 +1,12 @@
+{{- if eq .Values.cloudProvider "gcp" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: migrations-gke-metadata
+  labels:
+    app.kubernetes.io/component: gcp-metadata
+data:
+  GCP_PROJECT: {{ .Values.gcp.project | quote }}
+  GCP_REGION: {{ .Values.gcp.region | quote }}
+  GKE_CLUSTER_NAME: {{ .Values.gcp.clusterName | quote }}
+{{- end }}

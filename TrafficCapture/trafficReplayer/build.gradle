@@ -46,6 +46,9 @@ dependencies {
     implementation libs.aws.crt
     implementation libs.aws.msk.iam.auth
     implementation libs.commons.compress
+    implementation libs.gcp.storage
+    implementation libs.azure.storage.blob
+    implementation libs.azure.identity
 
     testFixturesImplementation project(':transformation:transformationPlugins:jsonMessageTransformers:jsonMessageTransformerInterface')
     testFixturesImplementation project(':TrafficCapture:captureOffloader')
