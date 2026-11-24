@@ -472,3 +472,117 @@ run "pod_cidr_is_passed_to_the_cluster" {
     error_message = "pod_cidr must set the cluster's overlay pod range."
   }
 }
+
+run "storage_private_endpoint_off_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_private_endpoint.blob) == 0 && length(azurerm_private_dns_zone.blob) == 0
+    error_message = "No Blob private endpoint or zone is created by default."
+  }
+
+  assert {
+    condition     = azurerm_storage_account.migration[0].public_network_access == "Enabled"
+    error_message = "The storage account keeps public access by default."
+  }
+
+  assert {
+    condition     = output.storage_private_endpoint_ip == null
+    error_message = "storage_private_endpoint_ip must be null by default."
+  }
+}
+
+run "storage_private_endpoint_plans_blob_endpoint_zone_and_link" {
+  command = plan
+
+  variables {
+    storage_connectivity = { mode = "private_endpoint" }
+  }
+
+  assert {
+    condition     = azurerm_private_endpoint.blob[0].private_service_connection[0].subresource_names == tolist(["blob"])
+    error_message = "The private endpoint must target the account's blob sub-resource."
+  }
+
+  assert {
+    condition     = azurerm_private_dns_zone.blob[0].name == "privatelink.blob.core.windows.net"
+    error_message = "The Blob private DNS zone must be privatelink.blob.core.windows.net."
+  }
+
+  assert {
+    condition     = azurerm_private_dns_zone_virtual_network_link.blob[0].resolution_policy == "NxDomainRedirect"
+    error_message = "The zone link must fall back to public DNS so accounts without a private endpoint still resolve."
+  }
+
+  assert {
+    condition     = length(azurerm_subnet.private_endpoints) == 1
+    error_message = "The Blob private endpoint needs the private endpoint subnet."
+  }
+
+  assert {
+    condition     = azurerm_storage_account.migration[0].public_network_access == "Enabled"
+    error_message = "A private endpoint alone does not turn off public access."
+  }
+}
+
+run "storage_disable_public_access_turns_off_the_public_endpoint" {
+  command = plan
+
+  variables {
+    storage_connectivity = { mode = "private_endpoint", disable_public_access = true }
+  }
+
+  assert {
+    condition     = azurerm_storage_account.migration[0].public_network_access == "Disabled"
+    error_message = "disable_public_access must set public_network_access to Disabled."
+  }
+}
+
+run "storage_disable_public_access_requires_a_private_endpoint" {
+  command = plan
+
+  variables {
+    storage_connectivity = { disable_public_access = true }
+  }
+
+  expect_failures = [var.storage_connectivity]
+}
+
+run "storage_rejects_invalid_mode" {
+  command = plan
+
+  variables {
+    storage_connectivity = { mode = "service_endpoint" }
+  }
+
+  expect_failures = [var.storage_connectivity]
+}
+
+run "storage_private_endpoint_on_an_existing_account" {
+  command = plan
+
+  variables {
+    create_storage_account                       = false
+    existing_storage_account_name                = "existingaccount"
+    existing_storage_account_resource_group_name = "existing-rg"
+    storage_connectivity                         = { mode = "private_endpoint" }
+  }
+
+  assert {
+    condition     = azurerm_private_endpoint.blob[0].private_service_connection[0].private_connection_resource_id == "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/existing-rg/providers/Microsoft.Storage/storageAccounts/existingaccount"
+    error_message = "The private endpoint must target the existing account."
+  }
+}
+
+run "storage_disable_public_access_rejects_an_existing_account" {
+  command = plan
+
+  variables {
+    create_storage_account                       = false
+    existing_storage_account_name                = "existingaccount"
+    existing_storage_account_resource_group_name = "existing-rg"
+    storage_connectivity                         = { mode = "private_endpoint", disable_public_access = true }
+  }
+
+  expect_failures = [azurerm_private_endpoint.blob]
+}

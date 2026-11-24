@@ -73,6 +73,11 @@ output "snapshot_repo_uri" {
   value       = local.storage_account_name == null ? null : "azure://${local.storage_account_name}/${local.container_name}"
 }
 
+output "storage_private_endpoint_ip" {
+  description = "Private IP of the Blob private endpoint, or null when storage_connectivity.mode is none."
+  value       = var.storage_connectivity.mode == "private_endpoint" ? azurerm_private_endpoint.blob[0].private_service_connection[0].private_ip_address : null
+}
+
 output "logs_ingestion_endpoint" {
   description = "Logs ingestion endpoint of the data collection rule, or null when enable_azure_monitor_logs is false."
   value       = var.enable_azure_monitor_logs ? azurerm_monitor_data_collection_rule.migration[0].logs_ingestion_endpoint : null

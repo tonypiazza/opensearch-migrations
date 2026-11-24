@@ -14,6 +14,7 @@ locals {
   private_endpoint_subnet_enabled = anytrue([
     var.source_connectivity.mode == "private_endpoint",
     var.target_connectivity.mode == "private_endpoint",
+    var.storage_connectivity.mode == "private_endpoint",
   ])
 }
 

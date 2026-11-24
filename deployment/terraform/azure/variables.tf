@@ -181,6 +181,30 @@ variable "existing_storage_account_resource_group_name" {
   default     = null
 }
 
+variable "storage_connectivity" {
+  description = <<-EOT
+    Private access to the storage account. mode = none (default) | private_endpoint. private_endpoint adds a
+    Blob private endpoint in the migration virtual network with the privatelink.blob.core.windows.net private
+    DNS zone, so pods reach the account over it. disable_public_access also turns off the account's public
+    endpoint; only for an account this module creates, and clients outside the virtual network lose access.
+  EOT
+  type = object({
+    mode                  = optional(string, "none")
+    disable_public_access = optional(bool, false)
+  })
+  default = { mode = "none" }
+
+  validation {
+    condition     = contains(["none", "private_endpoint"], var.storage_connectivity.mode)
+    error_message = "storage_connectivity.mode must be one of: none, private_endpoint."
+  }
+
+  validation {
+    condition     = !var.storage_connectivity.disable_public_access || var.storage_connectivity.mode == "private_endpoint"
+    error_message = "storage_connectivity.disable_public_access requires mode = private_endpoint, or pods cannot reach the account."
+  }
+}
+
 variable "storage_container_name" {
   description = "Blob container for snapshots and workflow artifacts. Terraform creates it in a storage account it creates; in an existing account, the chart creates it if it is missing."
   type        = string
