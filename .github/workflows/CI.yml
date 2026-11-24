@@ -401,6 +401,10 @@ jobs:
         run: |
           terraform init -backend=false
           terraform test
+          for module in modules/connectivity/private-endpoint modules/connectivity/vnet-peering; do
+            terraform -chdir="$module" init -backend=false
+            terraform -chdir="$module" test
+          done
 
   codeql-analyze:
     name: CodeQL (${{ matrix.language }})

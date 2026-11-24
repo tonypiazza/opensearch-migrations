@@ -37,6 +37,7 @@ resource "azurerm_kubernetes_cluster" "migration" {
   network_profile {
     network_plugin      = "azure"
     network_plugin_mode = "overlay"
+    pod_cidr            = var.pod_cidr
   }
 
   tags = local.common_tags

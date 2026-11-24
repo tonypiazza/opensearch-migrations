@@ -34,6 +34,12 @@ mock_provider "azurerm" {
     }
   }
 
+  mock_resource "azurerm_private_dns_zone" {
+    defaults = {
+      id = "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/ma-dev-eastus/providers/Microsoft.Network/privateDnsZones/example.com"
+    }
+  }
+
   mock_resource "azurerm_storage_account" {
     defaults = {
       id = "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/ma-dev-eastus/providers/Microsoft.Storage/storageAccounts/madevabcdef"
@@ -316,4 +322,153 @@ run "node_max_count_must_cover_min_count" {
   }
 
   expect_failures = [azurerm_kubernetes_cluster.migration]
+}
+
+run "connectivity_defaults_to_none_no_resources" {
+  command = plan
+
+  assert {
+    condition     = length(module.source_connectivity_private_endpoint) == 0 && length(module.target_connectivity_private_endpoint) == 0
+    error_message = "No private endpoints are created by default."
+  }
+
+  assert {
+    condition     = length(module.source_connectivity_peering) == 0 && length(module.target_connectivity_peering) == 0
+    error_message = "No peerings are created by default."
+  }
+
+  assert {
+    condition     = length(azurerm_subnet.private_endpoints) == 0
+    error_message = "The private endpoint subnet is created only when a private endpoint is configured."
+  }
+
+  assert {
+    condition     = output.source_private_endpoint == null && output.target_private_endpoint == null && output.source_private_endpoint_status == null && output.target_private_endpoint_status == null
+    error_message = "Private endpoint outputs must be null by default."
+  }
+}
+
+run "rejects_invalid_source_mode" {
+  command = plan
+
+  variables {
+    source_connectivity = { mode = "carrier_pigeon" }
+  }
+
+  expect_failures = [var.source_connectivity]
+}
+
+run "rejects_invalid_target_mode" {
+  command = plan
+
+  variables {
+    target_connectivity = { mode = "privatelink" }
+  }
+
+  expect_failures = [var.target_connectivity]
+}
+
+run "private_endpoint_requires_a_service_id_or_alias" {
+  command = plan
+
+  variables {
+    target_connectivity = { mode = "private_endpoint" }
+  }
+
+  expect_failures = [var.target_connectivity]
+}
+
+run "private_endpoint_rejects_both_id_and_alias" {
+  command = plan
+
+  variables {
+    source_connectivity = {
+      mode                       = "private_endpoint"
+      private_link_service_id    = "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/provider-rg/providers/Microsoft.Network/privateLinkServices/search-pls"
+      private_link_service_alias = "search-pls.11111111-1111-1111-1111-111111111111.eastus.azure.privatelinkservice"
+    }
+  }
+
+  expect_failures = [var.source_connectivity]
+}
+
+run "vnet_peering_requires_the_remote_network" {
+  command = plan
+
+  variables {
+    source_connectivity = { mode = "vnet_peering" }
+  }
+
+  expect_failures = [var.source_connectivity]
+}
+
+run "target_private_endpoint_plans_endpoint_subnet_and_dns" {
+  command = plan
+
+  variables {
+    target_connectivity = {
+      mode                       = "private_endpoint"
+      private_link_service_alias = "search-pls.11111111-1111-1111-1111-111111111111.eastus.azure.privatelinkservice"
+      dns_name                   = "search.example.com"
+    }
+  }
+
+  assert {
+    condition     = length(module.target_connectivity_private_endpoint) == 1 && length(module.source_connectivity_private_endpoint) == 0
+    error_message = "Only the target leg gets a private endpoint."
+  }
+
+  assert {
+    condition     = azurerm_subnet.private_endpoints[0].address_prefixes == tolist(["10.212.16.0/27"])
+    error_message = "The private endpoint subnet must use private_endpoint_subnet_cidr."
+  }
+
+  assert {
+    condition     = module.target_connectivity_private_endpoint[0].endpoint_fqdn == "search.example.com"
+    error_message = "The target endpoint must resolve through dns_name."
+  }
+
+  assert {
+    condition     = output.target_private_endpoint == "search.example.com"
+    error_message = "target_private_endpoint must be the dns_name when one is set."
+  }
+}
+
+run "source_vnet_peering_plans_our_side_only" {
+  command = plan
+
+  variables {
+    source_connectivity = {
+      mode                      = "vnet_peering"
+      remote_virtual_network_id = "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/source-rg/providers/Microsoft.Network/virtualNetworks/source-vnet"
+    }
+  }
+
+  assert {
+    condition     = length(module.source_connectivity_peering) == 1 && length(module.target_connectivity_peering) == 0
+    error_message = "Only the source leg gets a peering."
+  }
+
+  assert {
+    condition     = length(azurerm_subnet.private_endpoints) == 0
+    error_message = "Peering does not need the private endpoint subnet."
+  }
+
+  assert {
+    condition     = output.source_private_endpoint == null
+    error_message = "source_private_endpoint is null for vnet_peering."
+  }
+}
+
+run "pod_cidr_is_passed_to_the_cluster" {
+  command = plan
+
+  variables {
+    pod_cidr = "10.250.0.0/16"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.migration.network_profile[0].pod_cidr == "10.250.0.0/16"
+    error_message = "pod_cidr must set the cluster's overlay pod range."
+  }
 }

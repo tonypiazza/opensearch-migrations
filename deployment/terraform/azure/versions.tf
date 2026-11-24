@@ -4,8 +4,9 @@ terraform {
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
-      # 5.9 added the Direct kind and logs_ingestion_endpoint on azurerm_monitor_data_collection_rule.
-      version = "~> 5.9"
+      # 5.9 added the Direct kind and logs_ingestion_endpoint on azurerm_monitor_data_collection_rule;
+      # 5.14 added the private_service_connection status on azurerm_private_endpoint.
+      version = "~> 5.14"
     }
     azuread = {
       source  = "hashicorp/azuread"

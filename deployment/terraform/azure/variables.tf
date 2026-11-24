@@ -55,6 +55,96 @@ variable "aks_subnet_cidr" {
   }
 }
 
+variable "pod_cidr" {
+  description = "Pod address range for Azure CNI overlay. Default null uses the AKS default, 10.244.0.0/16. It must not overlap a peered network; changing it replaces the cluster."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.pod_cidr == null || can(cidrhost(var.pod_cidr, 0))
+    error_message = "pod_cidr must be a valid CIDR block."
+  }
+}
+
+variable "private_endpoint_subnet_cidr" {
+  description = "Address range of the subnet for private endpoints, inside vnet_cidr. The subnet is created only when a private endpoint is configured."
+  type        = string
+  default     = "10.212.16.0/27"
+
+  validation {
+    condition     = can(cidrhost(var.private_endpoint_subnet_cidr, 0))
+    error_message = "private_endpoint_subnet_cidr must be a valid CIDR block."
+  }
+}
+
+variable "source_connectivity" {
+  description = <<-EOT
+    Private connectivity for the source-read leg. mode = none (default) | private_endpoint | vnet_peering.
+    private_endpoint connects to the provider's Private Link Service by private_link_service_id or
+    private_link_service_alias (a connection by alias waits for the provider's approval), with an optional
+    dns_name resolved through a private DNS zone. vnet_peering creates our side of a peering to
+    remote_virtual_network_id; the remote owner creates the other side.
+  EOT
+  type = object({
+    mode = optional(string, "none")
+    # private_endpoint:
+    private_link_service_id    = optional(string)
+    private_link_service_alias = optional(string)
+    request_message            = optional(string)
+    dns_name                   = optional(string)
+    dns_zone_domain            = optional(string)
+    # vnet_peering:
+    remote_virtual_network_id = optional(string)
+  })
+  default = { mode = "none" }
+
+  validation {
+    condition     = contains(["none", "private_endpoint", "vnet_peering"], var.source_connectivity.mode)
+    error_message = "source_connectivity.mode must be one of: none, private_endpoint, vnet_peering."
+  }
+
+  validation {
+    condition     = var.source_connectivity.mode != "private_endpoint" || (try(var.source_connectivity.private_link_service_id, null) == null) != (try(var.source_connectivity.private_link_service_alias, null) == null)
+    error_message = "source_connectivity requires exactly one of private_link_service_id or private_link_service_alias when mode = private_endpoint."
+  }
+
+  validation {
+    condition     = var.source_connectivity.mode != "vnet_peering" || try(var.source_connectivity.remote_virtual_network_id, null) != null
+    error_message = "source_connectivity.remote_virtual_network_id is required when mode = vnet_peering."
+  }
+}
+
+variable "target_connectivity" {
+  description = "Private connectivity for the target-write leg; same fields as source_connectivity. A target already inside the migration virtual network needs neither: leave mode = none."
+  type = object({
+    mode = optional(string, "none")
+    # private_endpoint:
+    private_link_service_id    = optional(string)
+    private_link_service_alias = optional(string)
+    request_message            = optional(string)
+    dns_name                   = optional(string)
+    dns_zone_domain            = optional(string)
+    # vnet_peering:
+    remote_virtual_network_id = optional(string)
+  })
+  default = { mode = "none" }
+
+  validation {
+    condition     = contains(["none", "private_endpoint", "vnet_peering"], var.target_connectivity.mode)
+    error_message = "target_connectivity.mode must be one of: none, private_endpoint, vnet_peering."
+  }
+
+  validation {
+    condition     = var.target_connectivity.mode != "private_endpoint" || (try(var.target_connectivity.private_link_service_id, null) == null) != (try(var.target_connectivity.private_link_service_alias, null) == null)
+    error_message = "target_connectivity requires exactly one of private_link_service_id or private_link_service_alias when mode = private_endpoint."
+  }
+
+  validation {
+    condition     = var.target_connectivity.mode != "vnet_peering" || try(var.target_connectivity.remote_virtual_network_id, null) != null
+    error_message = "target_connectivity.remote_virtual_network_id is required when mode = vnet_peering."
+  }
+}
+
 variable "node_vm_size" {
   description = "VM size of the AKS node pool. Standard_D4ps_v5 (arm64) also works; the published images are multi-architecture."
   type        = string

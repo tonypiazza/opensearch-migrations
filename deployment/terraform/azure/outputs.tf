@@ -18,6 +18,41 @@ output "kubeconfig_command" {
   value       = "az aks get-credentials --resource-group ${azurerm_resource_group.migration.name} --name ${azurerm_kubernetes_cluster.migration.name}"
 }
 
+output "virtual_network_id" {
+  description = "Migration virtual network; the remote owner of a vnet_peering leg peers back to this ID."
+  value       = azurerm_virtual_network.migration.id
+}
+
+output "source_private_endpoint" {
+  description = <<-EOT
+    Private endpoint for the source leg when source_connectivity.mode = private_endpoint, else null:
+    the dns_name if set, otherwise the endpoint's private IP. Put this in the workflow source cluster
+    endpoint config. With vnet_peering, use the cluster's own address over the peering.
+  EOT
+  value = var.source_connectivity.mode == "private_endpoint" ? coalesce(
+    module.source_connectivity_private_endpoint[0].endpoint_fqdn,
+    module.source_connectivity_private_endpoint[0].private_ip,
+  ) : null
+}
+
+output "target_private_endpoint" {
+  description = "Private endpoint for the target leg when target_connectivity.mode = private_endpoint, else null; as source_private_endpoint."
+  value = var.target_connectivity.mode == "private_endpoint" ? coalesce(
+    module.target_connectivity_private_endpoint[0].endpoint_fqdn,
+    module.target_connectivity_private_endpoint[0].private_ip,
+  ) : null
+}
+
+output "source_private_endpoint_status" {
+  description = "Connection status of the source private endpoint ('Pending' until the provider approves, then 'Approved'), or null."
+  value       = var.source_connectivity.mode == "private_endpoint" ? module.source_connectivity_private_endpoint[0].connection_status : null
+}
+
+output "target_private_endpoint_status" {
+  description = "Connection status of the target private endpoint ('Pending' until the provider approves, then 'Approved'), or null."
+  value       = var.target_connectivity.mode == "private_endpoint" ? module.target_connectivity_private_endpoint[0].connection_status : null
+}
+
 output "workload_identity_client_id" {
   description = "Client ID of the managed identity federated to the chart's service accounts; the chart's azure.workloadIdentityClientId."
   value       = azurerm_user_assigned_identity.migration.client_id
