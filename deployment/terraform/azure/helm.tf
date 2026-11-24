@@ -12,7 +12,7 @@ locals {
     },
     {
       name  = "azure.monitor.dceUrl"
-      value = azurerm_monitor_data_collection_rule.migration[0].logs_ingestion_endpoint
+      value = local.monitor_logs_ingestion_endpoint
     },
     {
       name  = "azure.monitor.dcrImmutableId"

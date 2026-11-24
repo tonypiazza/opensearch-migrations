@@ -15,6 +15,7 @@ locals {
     var.source_connectivity.mode == "private_endpoint",
     var.target_connectivity.mode == "private_endpoint",
     var.storage_connectivity.mode == "private_endpoint",
+    local.monitor_private_link,
   ])
 }
 

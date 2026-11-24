@@ -262,6 +262,17 @@ variable "enable_azure_monitor_logs" {
   default     = false
 }
 
+variable "azure_monitor_private_link" {
+  description = <<-EOT
+    Send workload logs to Azure Monitor over Private Link when enable_azure_monitor_logs is true. Adds a data
+    collection endpoint with public access off, an Azure Monitor Private Link Scope with private-only ingestion,
+    a private endpoint, and its private DNS zones. Queries stay open so the portal works from outside the virtual
+    network. fluent-bit still authenticates with Microsoft Entra ID over the public endpoint.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "log_analytics_retention_in_days" {
   description = "Retention of the Log Analytics workspace when enable_azure_monitor_logs is true."
   type        = number

@@ -79,8 +79,8 @@ output "storage_private_endpoint_ip" {
 }
 
 output "logs_ingestion_endpoint" {
-  description = "Logs ingestion endpoint of the data collection rule, or null when enable_azure_monitor_logs is false."
-  value       = var.enable_azure_monitor_logs ? azurerm_monitor_data_collection_rule.migration[0].logs_ingestion_endpoint : null
+  description = "Logs ingestion endpoint fluent-bit sends to: the data collection endpoint's with azure_monitor_private_link, else the rule's; null when enable_azure_monitor_logs is false."
+  value       = local.monitor_logs_ingestion_endpoint
 }
 
 output "log_analytics_workspace_id" {

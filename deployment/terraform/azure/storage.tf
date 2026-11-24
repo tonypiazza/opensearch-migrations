@@ -22,11 +22,16 @@ resource "azurerm_storage_container" "migration" {
   container_access_type = "private"
 }
 
+locals {
+  # Azure Monitor Private Link also maps a storage endpoint in this zone.
+  blob_private_dns_zone_enabled = var.storage_connectivity.mode == "private_endpoint" || local.monitor_private_link
+}
+
 # The account's own blob hostname resolves to the private endpoint through this zone. Unresolved
 # names fall back to public DNS, so other accounts without a private endpoint, such as a source
 # cluster's snapshot account, stay reachable.
 resource "azurerm_private_dns_zone" "blob" {
-  count = var.storage_connectivity.mode == "private_endpoint" ? 1 : 0
+  count = local.blob_private_dns_zone_enabled ? 1 : 0
 
   name                = "privatelink.blob.core.windows.net"
   resource_group_name = azurerm_resource_group.migration.name
@@ -34,7 +39,7 @@ resource "azurerm_private_dns_zone" "blob" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "blob" {
-  count = var.storage_connectivity.mode == "private_endpoint" ? 1 : 0
+  count = local.blob_private_dns_zone_enabled ? 1 : 0
 
   name                 = "${local.name}-blob"
   private_dns_zone_id  = azurerm_private_dns_zone.blob[0].id

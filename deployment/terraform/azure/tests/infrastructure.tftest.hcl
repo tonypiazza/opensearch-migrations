@@ -68,6 +68,19 @@ mock_provider "azurerm" {
     }
   }
 
+  mock_resource "azurerm_monitor_data_collection_endpoint" {
+    defaults = {
+      id                      = "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/ma-dev-eastus/providers/Microsoft.Insights/dataCollectionEndpoints/ma-dev-eastus-logs"
+      logs_ingestion_endpoint = "https://ma-dev-eastus-logs-wxyz.eastus-1.ingest.monitor.azure.com"
+    }
+  }
+
+  mock_resource "azurerm_monitor_private_link_scope" {
+    defaults = {
+      id = "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/ma-dev-eastus/providers/Microsoft.Insights/privateLinkScopes/ma-dev-eastus-logs"
+    }
+  }
+
   mock_resource "azurerm_monitor_data_collection_rule" {
     defaults = {
       id                      = "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/ma-dev-eastus/providers/Microsoft.Insights/dataCollectionRules/ma-dev-eastus-logs"
@@ -646,4 +659,106 @@ run "private_cluster_rejects_authorized_ip_ranges" {
   }
 
   expect_failures = [azurerm_kubernetes_cluster.migration]
+}
+
+run "monitor_private_link_off_by_default" {
+  command = plan
+
+  variables {
+    enable_azure_monitor_logs = true
+  }
+
+  assert {
+    condition     = length(azurerm_monitor_private_link_scope.migration) == 0 && length(azurerm_monitor_data_collection_endpoint.migration) == 0 && length(azurerm_private_endpoint.monitor) == 0
+    error_message = "Azure Monitor Private Link is off by default."
+  }
+
+  assert {
+    condition     = azurerm_monitor_data_collection_rule.migration[0].data_collection_endpoint_id == null
+    error_message = "The rule uses its own ingestion endpoint without Private Link."
+  }
+
+  assert {
+    condition     = length(azurerm_subnet.private_endpoints) == 0 && length(azurerm_private_dns_zone.blob) == 0
+    error_message = "Logs without Private Link need no private endpoint subnet or Blob zone."
+  }
+}
+
+run "monitor_private_link_requires_azure_monitor_logs" {
+  command = plan
+
+  variables {
+    azure_monitor_private_link = true
+  }
+
+  expect_failures = [azurerm_monitor_private_link_scope.migration]
+}
+
+run "monitor_private_link_plans_endpoint_scope_and_private_endpoint" {
+  command = plan
+
+  variables {
+    enable_azure_monitor_logs  = true
+    azure_monitor_private_link = true
+  }
+
+  assert {
+    condition     = azurerm_monitor_data_collection_endpoint.migration[0].public_network_access_enabled == false
+    error_message = "The data collection endpoint must not accept public traffic."
+  }
+
+  assert {
+    condition     = azurerm_monitor_private_link_scope.migration[0].ingestion_access_mode == "PrivateOnly" && azurerm_monitor_private_link_scope.migration[0].query_access_mode == "Open"
+    error_message = "The scope must take ingestion only over Private Link and leave queries open."
+  }
+
+  assert {
+    condition     = length(azurerm_monitor_private_link_scoped_service.workspace) == 1 && length(azurerm_monitor_private_link_scoped_service.endpoint) == 1
+    error_message = "The workspace and the data collection endpoint must both be in the scope."
+  }
+
+  assert {
+    condition     = azurerm_private_endpoint.monitor[0].private_service_connection[0].subresource_names == tolist(["azuremonitor"])
+    error_message = "The private endpoint must target the scope's azuremonitor sub-resource."
+  }
+
+  assert {
+    condition = toset(keys(azurerm_private_dns_zone.monitor)) == toset([
+      "privatelink.monitor.azure.com",
+      "privatelink.oms.opinsights.azure.com",
+      "privatelink.ods.opinsights.azure.com",
+      "privatelink.agentsvc.azure-automation.net",
+    ]) && length(azurerm_private_dns_zone_virtual_network_link.monitor) == 4
+    error_message = "The Azure Monitor private DNS zones must be created and linked."
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone.blob) == 1 && length(azurerm_subnet.private_endpoints) == 1
+    error_message = "Azure Monitor Private Link needs the shared Blob zone and the private endpoint subnet."
+  }
+
+  assert {
+    condition     = length(azurerm_private_endpoint.blob) == 0
+    error_message = "Azure Monitor Private Link must not add a storage account private endpoint."
+  }
+}
+
+# Apply against the mock providers: HashiCorp Terraform leaves computed mock values unknown at plan.
+run "monitor_private_link_sends_logs_to_the_data_collection_endpoint" {
+  command = apply
+
+  variables {
+    enable_azure_monitor_logs  = true
+    azure_monitor_private_link = true
+  }
+
+  assert {
+    condition     = output.logs_ingestion_endpoint == "https://ma-dev-eastus-logs-wxyz.eastus-1.ingest.monitor.azure.com"
+    error_message = "logs_ingestion_endpoint must be the data collection endpoint's with Private Link."
+  }
+
+  assert {
+    condition     = azurerm_monitor_data_collection_rule.migration[0].data_collection_endpoint_id == "/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/ma-dev-eastus/providers/Microsoft.Insights/dataCollectionEndpoints/ma-dev-eastus-logs"
+    error_message = "The rule must use the data collection endpoint."
+  }
 }
