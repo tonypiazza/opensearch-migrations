@@ -6,6 +6,16 @@ resource "azurerm_kubernetes_cluster" "migration" {
   kubernetes_version  = var.kubernetes_version
   sku_tier            = "Free"
 
+  private_cluster_enabled = var.private_cluster_enabled
+  private_dns_zone_id     = var.private_cluster_enabled ? "System" : null
+
+  dynamic "api_server_access_profile" {
+    for_each = length(var.api_server_authorized_ip_ranges) > 0 ? [1] : []
+    content {
+      authorized_ip_ranges = var.api_server_authorized_ip_ranges
+    }
+  }
+
   # Workload ID federates the chart's service accounts to the migration identity (identity.tf).
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
@@ -46,6 +56,12 @@ resource "azurerm_kubernetes_cluster" "migration" {
     precondition {
       condition     = var.node_max_count >= var.node_min_count
       error_message = "node_max_count must be greater than or equal to node_min_count."
+    }
+
+    # Authorized ranges apply only to the public API server.
+    precondition {
+      condition     = !var.private_cluster_enabled || length(var.api_server_authorized_ip_ranges) == 0
+      error_message = "api_server_authorized_ip_ranges cannot be combined with private_cluster_enabled."
     }
   }
 }

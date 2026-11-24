@@ -586,3 +586,64 @@ run "storage_disable_public_access_rejects_an_existing_account" {
 
   expect_failures = [azurerm_private_endpoint.blob]
 }
+
+run "control_plane_public_and_unrestricted_by_default" {
+  command = plan
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.migration.private_cluster_enabled == false
+    error_message = "The API server must stay public by default."
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.migration.api_server_access_profile) == 0
+    error_message = "The API server must not restrict addresses by default."
+  }
+}
+
+run "authorized_ip_ranges_restrict_the_public_api_server" {
+  command = plan
+
+  variables {
+    api_server_authorized_ip_ranges = ["203.0.113.10/32", "198.51.100.0/24"]
+  }
+
+  assert {
+    condition     = toset(azurerm_kubernetes_cluster.migration.api_server_access_profile[0].authorized_ip_ranges) == toset(["203.0.113.10/32", "198.51.100.0/24"])
+    error_message = "api_server_authorized_ip_ranges must restrict the API server."
+  }
+}
+
+run "authorized_ip_ranges_reject_invalid_cidrs" {
+  command = plan
+
+  variables {
+    api_server_authorized_ip_ranges = ["203.0.113.10"]
+  }
+
+  expect_failures = [var.api_server_authorized_ip_ranges]
+}
+
+run "private_cluster_uses_an_aks_managed_dns_zone" {
+  command = plan
+
+  variables {
+    private_cluster_enabled = true
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.migration.private_cluster_enabled == true && azurerm_kubernetes_cluster.migration.private_dns_zone_id == "System"
+    error_message = "A private cluster must use an AKS-managed private DNS zone."
+  }
+}
+
+run "private_cluster_rejects_authorized_ip_ranges" {
+  command = plan
+
+  variables {
+    private_cluster_enabled         = true
+    api_server_authorized_ip_ranges = ["203.0.113.10/32"]
+  }
+
+  expect_failures = [azurerm_kubernetes_cluster.migration]
+}

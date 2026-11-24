@@ -145,6 +145,28 @@ variable "target_connectivity" {
   }
 }
 
+variable "api_server_authorized_ip_ranges" {
+  description = "CIDR ranges allowed to reach the public AKS API server. Default [] allows any address. Include the host that runs Terraform, kubectl, and the Helm install."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for cidr in var.api_server_authorized_ip_ranges : can(cidrhost(cidr, 0))])
+    error_message = "api_server_authorized_ip_ranges must contain valid CIDR blocks."
+  }
+}
+
+variable "private_cluster_enabled" {
+  description = <<-EOT
+    Give the AKS API server only a private endpoint in the migration virtual network. Default false preserves
+    current behavior. When true, Terraform (including deploy_helm and enable_azure_monitor_logs, which use the
+    Kubernetes API), kubectl, and Helm must run from a host that can reach the virtual network, such as a peered
+    network, a VPN, or Azure Bastion; this module does not provision one. Changing it replaces the cluster.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "node_vm_size" {
   description = "VM size of the AKS node pool. Standard_D4ps_v5 (arm64) also works; the published images are multi-architecture."
   type        = string
